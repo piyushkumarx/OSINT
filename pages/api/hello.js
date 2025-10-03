@@ -5,16 +5,12 @@ const keys = new Set(["FUCKDEMO"]); // demo key for testing
 const apiUrls = {
   number: [
 
-    "https://osintx.info/API/aetherdemo.php?key=JONATHAN&type=mobile&term=",
-    "https://private-osint.drsudo.workers.dev/?key=luffy&number=",
-    "https://osintx.danger-vip-key.shop/api.php?key=DEMO&num=",
     "https://codewairth.vercel.app/search_mobile?mobile="
     
   ],
   vehicle: [
     "https://osintx.info/API/new1vehicle.php?key=JONATHAN&rc=",
-    "https://private-osint.drsudo.workers.dev/?key=luffy&vehicle=",
-    "https://osintx.danger-vip-key.shop/api.php?key=DEMO&rc="
+    
   ],
   aadhaar: [
     "https://osintx.info/API/aetherdemo.php?key=JONATHAN&type=id_number&term=",
