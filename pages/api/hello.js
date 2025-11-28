@@ -8,7 +8,6 @@ const apiUrls = {
   ],
   vehicle: [
     "https://osintx.info/API/new1vehicle.php?key=JONATHAN&rc=",
-    
   ],
   aadhaar: [
     "https://osintx.info/API/aetherdemo.php?key=JONATHAN&type=id_number&term=",
@@ -26,7 +25,20 @@ async function proxyFetch(urls, term) {
     try {
       const r = await fetch(url + encodeURIComponent(term));
       const ct = r.headers.get("content-type") || "";
-      const body = await r.text();
+      let body = await r.text();
+      
+      // Check if it's the encrypted response with redirect
+      if (body.includes('slowAES.decrypt') && body.includes('location.href')) {
+        // Extract the redirect URL from the JavaScript
+        const redirectMatch = body.match(/location\.href="([^"]+)"/);
+        if (redirectMatch && redirectMatch[1]) {
+          const redirectUrl = redirectMatch[1];
+          // Follow the redirect
+          const redirectResponse = await fetch(redirectUrl);
+          body = await redirectResponse.text();
+        }
+      }
+      
       let data;
       try {
         if (ct.includes("application/json") || body.trim().startsWith("{")) {
