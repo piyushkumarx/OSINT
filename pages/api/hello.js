@@ -19,38 +19,47 @@ const apiUrls = {
   ]
 };
 
-// Helper to fetch from multiple URLs
+// Helper to fetch from multiple URLs with redirect handling
 async function proxyFetch(urls, term) {
   for (const url of urls) {
     try {
-      const r = await fetch(url + encodeURIComponent(term));
-      const ct = r.headers.get("content-type") || "";
-      let body = await r.text();
-      
-      // Check if it's the encrypted response with redirect
-      if (body.includes('slowAES.decrypt') && body.includes('location.href')) {
-        // Extract the redirect URL from the JavaScript
-        const redirectMatch = body.match(/location\.href="([^"]+)"/);
-        if (redirectMatch && redirectMatch[1]) {
-          const redirectUrl = redirectMatch[1];
-          // Follow the redirect
-          const redirectResponse = await fetch(redirectUrl);
-          body = await redirectResponse.text();
+      let currentUrl = url + encodeURIComponent(term);
+      let redirectCount = 0;
+      const maxRedirects = 5;
+
+      while (redirectCount < maxRedirects) {
+        const r = await fetch(currentUrl);
+        const ct = r.headers.get("content-type") || "";
+        let body = await r.text();
+        
+        // Check if it's the encrypted response with redirect
+        if (body.includes('slowAES.decrypt') && body.includes('location.href')) {
+          // Extract the redirect URL from the JavaScript
+          const redirectMatch = body.match(/location\.href="([^"]+)"/);
+          if (redirectMatch && redirectMatch[1]) {
+            currentUrl = redirectMatch[1];
+            redirectCount++;
+            continue; // Follow the redirect
+          }
         }
-      }
-      
-      let data;
-      try {
-        if (ct.includes("application/json") || body.trim().startsWith("{")) {
-          data = JSON.parse(body);
-        } else {
+        
+        // If we get here, we have the final response
+        let data;
+        try {
+          if (ct.includes("application/json") || body.trim().startsWith("{")) {
+            data = JSON.parse(body);
+          } else {
+            data = body;
+          }
+        } catch {
           data = body;
         }
-      } catch {
-        data = body;
+        
+        // Return the first successful response only
+        return data;
       }
-      // Return the first successful response only
-      return data;
+      
+      return { error: "Too many redirects" };
     } catch (e) {
       continue; // try next URL
     }
