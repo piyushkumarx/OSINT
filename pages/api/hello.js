@@ -4,7 +4,7 @@ const keys = new Set(["FUCKDEMO"]); // demo key for testing
 // URLs per type
 const apiUrls = {
   number: [
-    "https://osint-info.great-site.net/num.php?key=Vishal&phone="
+    "https://flipcartstore.serv00.net/PHONE/1.php?api_key=cyberGen123&mobile="
   ],
   vehicle: [
     "https://osintx.info/API/new1vehicle.php?key=JONATHAN&rc=",
