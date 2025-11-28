@@ -140,7 +140,26 @@ export default async function handler(req, res) {
   if (!urls) return res.status(400).json({ success: false, error: "unknown type" });
 
   try {
-    const result = await proxyFetch(urls, term);
+    let result = await proxyFetch(urls, term);
+    
+    // Remove unwanted fields from result if it's an object
+    if (result && typeof result === 'object') {
+      delete result.credit_by;
+      delete result.developer;
+      delete result.powered_by;
+      
+      // If result has nested data array, clean each item
+      if (result.data && Array.isArray(result.data)) {
+        result.data.forEach(item => {
+          if (item && typeof item === 'object') {
+            delete item.credit_by;
+            delete item.developer;
+            delete item.powered_by;
+          }
+        });
+      }
+    }
+    
     return res.json({
       success: true,
       APIowner: "@velvierhackzone, @Hijdksosk",
