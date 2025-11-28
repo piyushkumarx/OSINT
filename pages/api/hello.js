@@ -4,9 +4,7 @@ const keys = new Set(["FUCKDEMO"]); // demo key for testing
 // URLs per type
 const apiUrls = {
   number: [
-
-    "https://codewairth.vercel.app/search_mobile?mobile="
-    
+    "https://osint-info.great-site.net/num.php?key=Vishal&phone="
   ],
   vehicle: [
     "https://osintx.info/API/new1vehicle.php?key=JONATHAN&rc=",
