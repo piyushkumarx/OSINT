@@ -7,7 +7,8 @@ const apiUrls = {
     "https://flipcartstore.serv00.net/PHONE/1.php?api_key=cyberGen123&mobile="
   ],
   vehicle: [
-    "https://osintx.info/API/new1vehicle.php?key=JONATHAN&rc=",
+    "https://vehicle-puc-challan-info-suruzxxr.onrender.com/api/vehicle_info?vehicle_no=",
+    "https://vechileinfoapi.anshppt19.workers.dev/api/rc?number="
   ],
   aadhaar: [
     "https://osintx.info/API/aetherdemo.php?key=JONATHAN&type=id_number&term=",
@@ -21,6 +22,8 @@ const apiUrls = {
 
 // Helper to fetch from multiple URLs with cookie handling
 async function proxyFetch(urls, term) {
+  const results = [];
+  
   for (const url of urls) {
     try {
       let currentUrl = url + encodeURIComponent(term);
@@ -87,16 +90,53 @@ async function proxyFetch(urls, term) {
           data = body;
         }
         
-        // Return the first successful response only
-        return data;
+        // Clean the data by removing credit/promotion fields
+        data = cleanData(data);
+        results.push(data);
+        break; // Move to next URL after success
       }
-      
-      return { error: "Too many redirects" };
     } catch (e) {
+      console.log(`Error fetching from ${url}:`, e.message);
       continue; // try next URL
     }
   }
-  return { error: "No response from APIs" };
+  
+  if (results.length === 0) {
+    return { error: "No response from APIs" };
+  }
+  
+  // For vehicle type, return combined results from both APIs
+  return results.length === 1 ? results[0] : results;
+}
+
+// Function to clean data by removing credit/promotion fields
+function cleanData(data) {
+  if (!data || typeof data !== 'object') return data;
+  
+  // Create a copy to avoid modifying original
+  const cleaned = Array.isArray(data) ? [...data] : {...data};
+  
+  // Remove top-level credit fields
+  delete cleaned.credit;
+  delete cleaned.credit_by;
+  delete cleaned.developer;
+  delete cleaned.powered_by;
+  delete cleaned.promotion;
+  delete cleaned.credits;
+  
+  // Recursively clean nested objects
+  if (Array.isArray(cleaned)) {
+    return cleaned.map(item => cleanData(item));
+  }
+  
+  // Clean nested objects
+  for (const key in cleaned) {
+    if (cleaned[key] && typeof cleaned[key] === 'object') {
+      cleaned[key] = cleanData(cleaned[key]);
+    }
+  }
+  
+  return cleaned;
 }
 
 export default async function handler(req, res) {
@@ -141,24 +181,6 @@ export default async function handler(req, res) {
 
   try {
     let result = await proxyFetch(urls, term);
-    
-    // Remove unwanted fields from result if it's an object
-    if (result && typeof result === 'object') {
-      delete result.credit_by;
-      delete result.developer;
-      delete result.powered_by;
-      
-      // If result has nested data array, clean each item
-      if (result.data && Array.isArray(result.data)) {
-        result.data.forEach(item => {
-          if (item && typeof item === 'object') {
-            delete item.credit_by;
-            delete item.developer;
-            delete item.powered_by;
-          }
-        });
-      }
-    }
     
     return res.json({
       success: true,
