@@ -19,16 +19,37 @@ const apiUrls = {
   ]
 };
 
-// Helper to fetch from multiple URLs with redirect handling
+// Helper to fetch from multiple URLs with cookie handling
 async function proxyFetch(urls, term) {
   for (const url of urls) {
     try {
       let currentUrl = url + encodeURIComponent(term);
       let redirectCount = 0;
       const maxRedirects = 5;
+      let cookies = '';
 
       while (redirectCount < maxRedirects) {
-        const r = await fetch(currentUrl);
+        const headers = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        };
+
+        // Add cookies if we have them
+        if (cookies) {
+          headers['Cookie'] = cookies;
+        }
+
+        const r = await fetch(currentUrl, { headers });
+        
+        // Update cookies from response
+        const setCookie = r.headers.get('set-cookie');
+        if (setCookie) {
+          cookies = setCookie;
+        }
+
         const ct = r.headers.get("content-type") || "";
         let body = await r.text();
         
@@ -40,6 +61,17 @@ async function proxyFetch(urls, term) {
             currentUrl = redirectMatch[1];
             redirectCount++;
             continue; // Follow the redirect
+          }
+        }
+        
+        // Check if it's the cookies error page
+        if (body.includes('Cookies are not enabled')) {
+          // Try to extract and set the cookie from the JavaScript
+          const cookieMatch = body.match(/document\.cookie="([^=]+)=([^;]+);/);
+          if (cookieMatch && cookieMatch[1] && cookieMatch[2]) {
+            cookies = `${cookieMatch[1]}=${cookieMatch[2]}`;
+            redirectCount++;
+            continue; // Retry with the cookie
           }
         }
         
