@@ -111,7 +111,7 @@ async function proxyFetch(urls, term) {
     return { error: "All APIs failed", errors };
   }
 
-  const finalData = results.length === 1 ? results[0].data : results;
+  const finalData = results.length === 1 ? results[0] : results;
   cache.set(cacheKey, { data: finalData, time: Date.now() });
 
   return finalData;
