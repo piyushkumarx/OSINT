@@ -10,8 +10,7 @@ const apiUrls = {
 
   vehicle: [
     "https://vehicle-darkgoku-api-nmhg.vercel.app/vehicle_info?vehicle_no=",
-    "https://vechileinfoapi.anshppt19.workers.dev/api/rc?number=",
-    "https://suryansh.site/vehicle-api.php?reg="
+    "https://vechileinfoapi.anshppt19.workers.dev/api/rc?number="
   ],
 
   vehicletonumber: [
