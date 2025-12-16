@@ -101,10 +101,7 @@ async function proxyFetch(urls, term) {
         data = { raw: text.slice(0, 500) };
       }
 
-      results.push({
-        source: baseUrl.split("//")[1].split("/")[0],
-        data: cleanData(data)
-      });
+      results.push(cleanData(data));
 
     } catch (e) {
       errors.push({ api: baseUrl, error: e.message });
@@ -206,7 +203,6 @@ export default async function handler(req, res) {
       type,
       term,
       result,
-      time: new Date().toLocaleString()
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
