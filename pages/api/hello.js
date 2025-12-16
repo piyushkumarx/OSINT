@@ -1,6 +1,6 @@
 // ================== CONFIG ==================
 const ADMIN_KEY = "MRWEIRDO"; // admin key (hardcoded as you want)
-const keys = new Set(["FUCKDEMO"]); // demo user key
+const keys = new Set(["FUCKDEMOO"]); // demo user key
 
 // ================== API URLS ==================
 const apiUrls = {
@@ -213,7 +213,7 @@ export async function test(req, res) {
   res.json({
     status: "API WORKING",
     version: "2.1",
-    demo_key: "FUCKDEMO",
+    demo_key: "FUCKDEMOO",
     admin_key: "MRWEIRDO",
     types: Object.keys(apiUrls)
   });
