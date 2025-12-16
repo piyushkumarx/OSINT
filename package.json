@@ -12,9 +12,4 @@
     "react": "18.2.0",
     "react-dom": "18.2.0"
   }
-  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).",
-  "main": "index.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
 }
