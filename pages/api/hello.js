@@ -14,7 +14,7 @@ const apiUrls = {
   ],
 
   vehicletonumber: [
-    "https://suryansh.site/vehicle-api.php?reg="
+    "https://suryansh.site/vehicle-owner.php?reg="
   ],
 
   aadhaar: [
