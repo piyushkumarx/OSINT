@@ -93,9 +93,9 @@ async function proxyFetch(urls, term, userKey) {
     return cached.data;
   }
 
-  // Try both APIs and combine results
+  // Try both APIs and combine ALL results
   if (urls === apiUrls.number) {
-    const results = [];
+    const allResults = [];
     const errors = [];
     
     // Try first API: https://num-to-email-all-info-api.vercel.app/?mobile=
@@ -151,14 +151,20 @@ async function proxyFetch(urls, term, userKey) {
       }
 
       if (data1 && typeof data1 === 'object') {
-        // Clean the data but keep address field
+        // Clean the data
         const cleaned1 = cleanData(data1);
         
         // Check if this is an array response
         if (Array.isArray(cleaned1)) {
-          results.push(...cleaned1);
+          // Add all items from array
+          for (const item of cleaned1) {
+            if (item && typeof item === 'object') {
+              allResults.push(item);
+            }
+          }
         } else if (Object.keys(cleaned1).length > 0) {
-          results.push(cleaned1);
+          // Add single object
+          allResults.push(cleaned1);
         }
       }
 
@@ -219,9 +225,15 @@ async function proxyFetch(urls, term, userKey) {
         const cleaned2 = cleanData(data2);
         
         if (Array.isArray(cleaned2)) {
-          results.push(...cleaned2);
+          // Add all items from array
+          for (const item of cleaned2) {
+            if (item && typeof item === 'object') {
+              allResults.push(item);
+            }
+          }
         } else if (Object.keys(cleaned2).length > 0) {
-          results.push(cleaned2);
+          // Add single object
+          allResults.push(cleaned2);
         }
       }
 
@@ -229,22 +241,10 @@ async function proxyFetch(urls, term, userKey) {
       errors.push({ api: "API 2", error: e.message });
     }
 
-    // If we got results, cache and return them
-    if (results.length > 0) {
-      // Merge duplicate results based on mobile number
-      const uniqueResults = [];
-      const seenMobiles = new Set();
-      
-      for (const result of results) {
-        const mobile = result.mobile || result.number || term;
-        if (!seenMobiles.has(mobile)) {
-          seenMobiles.add(mobile);
-          uniqueResults.push(result);
-        }
-      }
-      
-      cache.set(cacheKey, { data: uniqueResults, time: Date.now() });
-      return uniqueResults;
+    // If we got results, cache and return ALL of them (no deduplication)
+    if (allResults.length > 0) {
+      cache.set(cacheKey, { data: allResults, time: Date.now() });
+      return allResults;
     }
     
     // If no results, return error
