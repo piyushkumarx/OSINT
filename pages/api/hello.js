@@ -56,6 +56,7 @@ const cache = new Map();
 const CACHE_TIME = 5 * 60 * 1000; // 5 min
 
 // ================== CLEAN DATA ==================
+// ================== CLEAN DATA ==================
 function cleanData(data) {
   if (!data || typeof data !== "object") return data;
 
@@ -75,12 +76,17 @@ function cleanData(data) {
   for (const k in data) {
     const keyLower = k.toLowerCase();
     
-    // Skip banned keys
-    if (banned.some(bannedWord => keyLower.includes(bannedWord))) {
+    // Skip banned keys (exact match or contains)
+    const shouldSkip = banned.some(bannedWord => 
+      keyLower === bannedWord.toLowerCase() || 
+      keyLower.includes(bannedWord.toLowerCase())
+    );
+    
+    if (shouldSkip) {
       continue;
     }
     
-    // Recursively clean nested objects
+    // Keep all other keys including "address"
     if (typeof data[k] === "object" && data[k] !== null) {
       obj[k] = cleanData(data[k]);
     } else {
@@ -89,7 +95,6 @@ function cleanData(data) {
   }
   return obj;
 }
-
 // ================== FETCH LOGIC ==================
 async function proxyFetch(urls, term, key) {
   const cacheKey = urls.join("|") + ":" + term;
