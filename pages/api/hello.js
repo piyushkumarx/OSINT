@@ -37,30 +37,15 @@ const apiUrls = {
   ]
 };
 
-// ================== API CONFIGURATIONS ==================
-const apiConfigs = {
-  number: [
-    {
-      url: "https://num-to-email-all-info-api.vercel.app/?mobile=",
-      params: (term, key) => `${term}&key=GOKU`
-    },
-    {
-      url: "https://vishal-number-info.22web.org/information.php?number=",
-      params: (term, key) => `${term}&api_key=vishal_Hacker&i=1`
-    }
-  ]
-};
-
 // ================== CACHE ==================
 const cache = new Map();
 const CACHE_TIME = 5 * 60 * 1000; // 5 min
 
 // ================== CLEAN DATA ==================
-// ================== CLEAN DATA ==================
 function cleanData(data) {
   if (!data || typeof data !== "object") return data;
 
-  const banned = [
+  const bannedKeys = [
     "credit", "credit_by", "developer", "powered_by",
     "ads", "ad", "promo", "promotion", "sponsored",
     "credit_to", "credits", "developer_info", "powered",
@@ -73,30 +58,34 @@ function cleanData(data) {
   }
 
   const obj = {};
-  for (const k in data) {
-    const keyLower = k.toLowerCase();
+  for (const key in data) {
+    const keyLower = key.toLowerCase();
     
-    // Skip banned keys (exact match or contains)
-    const shouldSkip = banned.some(bannedWord => 
-      keyLower === bannedWord.toLowerCase() || 
-      keyLower.includes(bannedWord.toLowerCase())
-    );
+    // Check if this key should be skipped
+    let shouldSkip = false;
+    for (const banned of bannedKeys) {
+      if (keyLower === banned.toLowerCase()) {
+        shouldSkip = true;
+        break;
+      }
+    }
     
     if (shouldSkip) {
       continue;
     }
     
-    // Keep all other keys including "address"
-    if (typeof data[k] === "object" && data[k] !== null) {
-      obj[k] = cleanData(data[k]);
+    // Keep all other keys including address
+    if (typeof data[key] === "object" && data[key] !== null) {
+      obj[key] = cleanData(data[key]);
     } else {
-      obj[k] = data[k];
+      obj[key] = data[key];
     }
   }
   return obj;
 }
+
 // ================== FETCH LOGIC ==================
-async function proxyFetch(urls, term, key) {
+async function proxyFetch(urls, term, userKey) {
   const cacheKey = urls.join("|") + ":" + term;
   const cached = cache.get(cacheKey);
 
@@ -104,70 +93,176 @@ async function proxyFetch(urls, term, key) {
     return cached.data;
   }
 
-  const errors = [];
-  
-  // Special handling for number API with multiple endpoints
-  if (urls === apiUrls.number && apiConfigs.number) {
-    for (const apiConfig of apiConfigs.number) {
-      try {
-        const fullUrl = apiConfig.url + encodeURIComponent(term) + 
-                        (apiConfig.params ? "&" + apiConfig.params(term, key).split('&')[1] : "");
-        
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+  // Try both APIs and combine results
+  if (urls === apiUrls.number) {
+    const results = [];
+    const errors = [];
+    
+    // Try first API: https://num-to-email-all-info-api.vercel.app/?mobile=
+    try {
+      const url1 = `https://num-to-email-all-info-api.vercel.app/?mobile=${encodeURIComponent(term)}&key=GOKU`;
+      
+      const controller1 = new AbortController();
+      const timeout1 = setTimeout(() => controller1.abort(), 10000);
 
-        const res = await fetch(fullUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "application/json,text/html,*/*"
-          },
-          signal: controller.signal
-        });
+      const res1 = await fetch(url1, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json,text/html,*/*",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Referer": "https://vercel.com/"
+        },
+        signal: controller1.signal
+      });
 
-        clearTimeout(timeout);
-
-        const text = await res.text();
-        let data;
-
-        try {
-          data = JSON.parse(text);
-        } catch {
-          // Try to extract JSON from HTML if needed
-          const jsonMatch = text.match(/\{.*\}/s);
-          if (jsonMatch) {
-            try {
-              data = JSON.parse(jsonMatch[0]);
-            } catch {
-              data = { raw: text.slice(0, 500) };
-            }
-          } else {
-            data = { raw: text.slice(0, 500) };
-          }
-        }
-
-        const cleanedData = cleanData(data);
-        
-        // If we got valid data, cache and return it
-        if (cleanedData && Object.keys(cleanedData).length > 0) {
-          cache.set(cacheKey, { data: cleanedData, time: Date.now() });
-          return cleanedData;
-        } else {
-          errors.push({ api: apiConfig.url, error: "No valid data returned" });
-        }
-
-      } catch (e) {
-        errors.push({ api: apiConfig.url, error: e.message });
-        // Continue to next API
+      clearTimeout(timeout1);
+      
+      if (!res1.ok) {
+        throw new Error(`HTTP ${res1.status}: ${res1.statusText}`);
       }
+      
+      const text1 = await res1.text();
+      let data1;
+
+      try {
+        data1 = JSON.parse(text1);
+      } catch (e) {
+        // Try to find JSON in the response
+        const jsonMatch = text1.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            data1 = JSON.parse(jsonMatch[0]);
+          } catch {
+            // If still can't parse, check if it's an array
+            const arrayMatch = text1.match(/\[[\s\S]*\]/);
+            if (arrayMatch) {
+              try {
+                data1 = JSON.parse(arrayMatch[0]);
+              } catch {
+                data1 = { raw_response: text1.slice(0, 300) };
+              }
+            } else {
+              data1 = { raw_response: text1.slice(0, 300) };
+            }
+          }
+        } else {
+          data1 = { raw_response: text1.slice(0, 300) };
+        }
+      }
+
+      if (data1 && typeof data1 === 'object') {
+        // Clean the data but keep address field
+        const cleaned1 = cleanData(data1);
+        
+        // Check if this is an array response
+        if (Array.isArray(cleaned1)) {
+          results.push(...cleaned1);
+        } else if (Object.keys(cleaned1).length > 0) {
+          results.push(cleaned1);
+        }
+      }
+
+    } catch (e) {
+      errors.push({ api: "API 1", error: e.message });
     }
+
+    // Try second API: https://vishal-number-info.22web.org/information.php?number=
+    try {
+      const url2 = `https://vishal-number-info.22web.org/information.php?number=${encodeURIComponent(term)}&api_key=vishal_Hacker&i=1`;
+      
+      const controller2 = new AbortController();
+      const timeout2 = setTimeout(() => controller2.abort(), 10000);
+
+      const res2 = await fetch(url2, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json,text/html,*/*",
+          "Accept-Language": "en-US,en;q=0.9"
+        },
+        signal: controller2.signal
+      });
+
+      clearTimeout(timeout2);
+      
+      if (!res2.ok) {
+        throw new Error(`HTTP ${res2.status}: ${res2.statusText}`);
+      }
+      
+      const text2 = await res2.text();
+      let data2;
+
+      try {
+        data2 = JSON.parse(text2);
+      } catch (e) {
+        const jsonMatch = text2.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            data2 = JSON.parse(jsonMatch[0]);
+          } catch {
+            const arrayMatch = text2.match(/\[[\s\S]*\]/);
+            if (arrayMatch) {
+              try {
+                data2 = JSON.parse(arrayMatch[0]);
+              } catch {
+                data2 = { raw_response: text2.slice(0, 300) };
+              }
+            } else {
+              data2 = { raw_response: text2.slice(0, 300) };
+            }
+          }
+        } else {
+          data2 = { raw_response: text2.slice(0, 300) };
+        }
+      }
+
+      if (data2 && typeof data2 === 'object') {
+        const cleaned2 = cleanData(data2);
+        
+        if (Array.isArray(cleaned2)) {
+          results.push(...cleaned2);
+        } else if (Object.keys(cleaned2).length > 0) {
+          results.push(cleaned2);
+        }
+      }
+
+    } catch (e) {
+      errors.push({ api: "API 2", error: e.message });
+    }
+
+    // If we got results, cache and return them
+    if (results.length > 0) {
+      // Merge duplicate results based on mobile number
+      const uniqueResults = [];
+      const seenMobiles = new Set();
+      
+      for (const result of results) {
+        const mobile = result.mobile || result.number || term;
+        if (!seenMobiles.has(mobile)) {
+          seenMobiles.add(mobile);
+          uniqueResults.push(result);
+        }
+      }
+      
+      cache.set(cacheKey, { data: uniqueResults, time: Date.now() });
+      return uniqueResults;
+    }
+    
+    // If no results, return error
+    return { 
+      error: "No data found from any API", 
+      errors,
+      note: "Tried multiple sources but no valid data received"
+    };
+    
   } else {
     // Original logic for other APIs
     const results = [];
+    const errors = [];
 
     for (const baseUrl of urls) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        const timeout = setTimeout(() => controller.abort(), 10000);
 
         const res = await fetch(baseUrl + encodeURIComponent(term), {
           headers: {
@@ -204,13 +299,6 @@ async function proxyFetch(urls, term, key) {
 
     return finalData;
   }
-
-  // If we reached here, all number APIs failed
-  return { 
-    error: "All number APIs failed", 
-    errors,
-    note: "Tried multiple sources but no valid data received"
-  };
 }
 
 // ================== MAIN HANDLER ==================
