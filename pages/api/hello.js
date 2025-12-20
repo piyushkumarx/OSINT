@@ -5,7 +5,8 @@ const keys = new Set(["FUCKDEMOO"]); // demo user key
 // ================== API URLS ==================
 const apiUrls = {
   number: [
-    "https://flipcartstore.serv00.net/PHONE/1.php?api_key=cyberGen123&mobile="
+    "https://num-to-email-all-info-api.vercel.app/?mobile=",
+    "https://vishal-number-info.22web.org/information.php?number="
   ],
 
   vehicle: [
@@ -36,6 +37,20 @@ const apiUrls = {
   ]
 };
 
+// ================== API CONFIGURATIONS ==================
+const apiConfigs = {
+  number: [
+    {
+      url: "https://num-to-email-all-info-api.vercel.app/?mobile=",
+      params: (term, key) => `${term}&key=GOKU`
+    },
+    {
+      url: "https://vishal-number-info.22web.org/information.php?number=",
+      params: (term, key) => `${term}&api_key=vishal_Hacker&i=1`
+    }
+  ]
+};
+
 // ================== CACHE ==================
 const cache = new Map();
 const CACHE_TIME = 5 * 60 * 1000; // 5 min
@@ -46,26 +61,37 @@ function cleanData(data) {
 
   const banned = [
     "credit", "credit_by", "developer", "powered_by",
-    "ads", "ad", "promo", "promotion", "sponsored"
+    "ads", "ad", "promo", "promotion", "sponsored",
+    "credit_to", "credits", "developer_info", "powered",
+    "api_by", "api_owner", "copyright", "author"
   ];
 
+  // For array responses
   if (Array.isArray(data)) {
-    return data.map(cleanData);
+    return data.map(item => cleanData(item));
   }
 
   const obj = {};
   for (const k in data) {
-    if (!banned.includes(k.toLowerCase())) {
-      obj[k] = typeof data[k] === "object"
-        ? cleanData(data[k])
-        : data[k];
+    const keyLower = k.toLowerCase();
+    
+    // Skip banned keys
+    if (banned.some(bannedWord => keyLower.includes(bannedWord))) {
+      continue;
+    }
+    
+    // Recursively clean nested objects
+    if (typeof data[k] === "object" && data[k] !== null) {
+      obj[k] = cleanData(data[k]);
+    } else {
+      obj[k] = data[k];
     }
   }
   return obj;
 }
 
 // ================== FETCH LOGIC ==================
-async function proxyFetch(urls, term) {
+async function proxyFetch(urls, term, key) {
   const cacheKey = urls.join("|") + ":" + term;
   const cached = cache.get(cacheKey);
 
@@ -73,48 +99,113 @@ async function proxyFetch(urls, term) {
     return cached.data;
   }
 
-  const results = [];
   const errors = [];
-
-  for (const baseUrl of urls) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-
-      const res = await fetch(baseUrl + encodeURIComponent(term), {
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-          "Accept": "application/json,text/html,*/*"
-        },
-        signal: controller.signal
-      });
-
-      clearTimeout(timeout);
-
-      const text = await res.text();
-      let data;
-
+  
+  // Special handling for number API with multiple endpoints
+  if (urls === apiUrls.number && apiConfigs.number) {
+    for (const apiConfig of apiConfigs.number) {
       try {
-        data = JSON.parse(text);
-      } catch {
-        data = { raw: text.slice(0, 500) };
+        const fullUrl = apiConfig.url + encodeURIComponent(term) + 
+                        (apiConfig.params ? "&" + apiConfig.params(term, key).split('&')[1] : "");
+        
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(fullUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json,text/html,*/*"
+          },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+
+        const text = await res.text();
+        let data;
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // Try to extract JSON from HTML if needed
+          const jsonMatch = text.match(/\{.*\}/s);
+          if (jsonMatch) {
+            try {
+              data = JSON.parse(jsonMatch[0]);
+            } catch {
+              data = { raw: text.slice(0, 500) };
+            }
+          } else {
+            data = { raw: text.slice(0, 500) };
+          }
+        }
+
+        const cleanedData = cleanData(data);
+        
+        // If we got valid data, cache and return it
+        if (cleanedData && Object.keys(cleanedData).length > 0) {
+          cache.set(cacheKey, { data: cleanedData, time: Date.now() });
+          return cleanedData;
+        } else {
+          errors.push({ api: apiConfig.url, error: "No valid data returned" });
+        }
+
+      } catch (e) {
+        errors.push({ api: apiConfig.url, error: e.message });
+        // Continue to next API
       }
-
-      results.push(cleanData(data));
-
-    } catch (e) {
-      errors.push({ api: baseUrl, error: e.message });
     }
+  } else {
+    // Original logic for other APIs
+    const results = [];
+
+    for (const baseUrl of urls) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(baseUrl + encodeURIComponent(term), {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json,text/html,*/*"
+          },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+
+        const text = await res.text();
+        let data;
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { raw: text.slice(0, 500) };
+        }
+
+        results.push(cleanData(data));
+
+      } catch (e) {
+        errors.push({ api: baseUrl, error: e.message });
+      }
+    }
+
+    if (!results.length) {
+      return { error: "All APIs failed", errors };
+    }
+
+    const finalData = results.length === 1 ? results[0] : results;
+    cache.set(cacheKey, { data: finalData, time: Date.now() });
+
+    return finalData;
   }
 
-  if (!results.length) {
-    return { error: "All APIs failed", errors };
-  }
-
-  const finalData = results.length === 1 ? results[0] : results;
-  cache.set(cacheKey, { data: finalData, time: Date.now() });
-
-  return finalData;
+  // If we reached here, all number APIs failed
+  return { 
+    error: "All number APIs failed", 
+    errors,
+    note: "Tried multiple sources but no valid data received"
+  };
 }
 
 // ================== MAIN HANDLER ==================
@@ -194,7 +285,7 @@ export default async function handler(req, res) {
 
   // -------- FETCH --------
   try {
-    const result = await proxyFetch(apiUrls[type], term);
+    const result = await proxyFetch(apiUrls[type], term, q.key);
 
     return res.json({
       success: true,
