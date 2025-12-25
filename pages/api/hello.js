@@ -5,8 +5,8 @@ const keys = new Set(["FUCKDEMOO"]); // demo user key
 // ================== API URLS ==================
 const apiUrls = {
   number: [
-    "https://num-to-email-all-info-api.vercel.app/?mobile=",
-    "https://vishal-number-info.22web.org/information.php?number="
+    "https://num-search-ae.drsudo.workers.dev/api/num?key=iinl&num=",
+    "https://num-to-email-all-info-api.vercel.app/?mobile="
   ],
 
   vehicle: [
@@ -15,12 +15,20 @@ const apiUrls = {
   ],
 
   vehicletonumber: [
-    "https://suryansh.site/vehicle-owner.php?reg="
+    "https://osintx.site/vehicle-owner.php?reg="
   ],
 
   aadhaar: [
-    "https://osintx.info/API/aetherdemo.php?key=JONATHAN&type=id_number&term=",
+    "https://allapiinone.vercel.app/?key=DEMOKEY&type=id_number&term=",
     "https://osintx.danger-vip-key.shop/api.php?key=DEMO&aadhar="
+  ],
+
+  aadharrfamily: [
+    "https://osintx.site/family.php?term="
+  ],
+
+  upi: [
+    "https://osintx.site/upi.php?vpa="
   ],
 
   ifsc: [
@@ -91,6 +99,186 @@ async function proxyFetch(urls, term, userKey) {
 
   if (cached && Date.now() - cached.time < CACHE_TIME) {
     return cached.data;
+  }
+
+  // Special handling for Aadhaar Family API
+  if (urls === apiUrls.aadharrfamily) {
+    try {
+      const url = `https://osintx.site/family.php?term=${encodeURIComponent(term)}`;
+      
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json,text/html,*/*",
+          "Accept-Language": "en-US,en;q=0.9"
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const text = await res.text();
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        // Try to find JSON in the response
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            data = JSON.parse(jsonMatch[0]);
+          } catch {
+            const arrayMatch = text.match(/\[[\s\S]*\]/);
+            if (arrayMatch) {
+              try {
+                data = JSON.parse(arrayMatch[0]);
+              } catch {
+                data = { raw_response: text.slice(0, 300) };
+              }
+            } else {
+              data = { raw_response: text.slice(0, 300) };
+            }
+          }
+        } else {
+          data = { raw_response: text.slice(0, 300) };
+        }
+      }
+
+      const cleanedData = cleanData(data);
+      cache.set(cacheKey, { data: cleanedData, time: Date.now() });
+      return cleanedData;
+
+    } catch (e) {
+      return { error: `Aadhaar Family API failed: ${e.message}` };
+    }
+  }
+
+  // Special handling for UPI API
+  if (urls === apiUrls.upi) {
+    try {
+      const url = `https://osintx.site/upi.php?vpa=${encodeURIComponent(term)}`;
+      
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json,text/html,*/*",
+          "Accept-Language": "en-US,en;q=0.9"
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const text = await res.text();
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            data = JSON.parse(jsonMatch[0]);
+          } catch {
+            const arrayMatch = text.match(/\[[\s\S]*\]/);
+            if (arrayMatch) {
+              try {
+                data = JSON.parse(arrayMatch[0]);
+              } catch {
+                data = { raw_response: text.slice(0, 300) };
+              }
+            } else {
+              data = { raw_response: text.slice(0, 300) };
+            }
+          }
+        } else {
+          data = { raw_response: text.slice(0, 300) };
+        }
+      }
+
+      const cleanedData = cleanData(data);
+      cache.set(cacheKey, { data: cleanedData, time: Date.now() });
+      return cleanedData;
+
+    } catch (e) {
+      return { error: `UPI API failed: ${e.message}` };
+    }
+  }
+
+  // Special handling for vehicle to number API
+  if (urls === apiUrls.vehicletonumber) {
+    try {
+      // Extract registration number and key if provided
+      const regNumber = term.split('&')[0];
+      const url = `https://osintx.site/vehicle-owner.php?reg=${encodeURIComponent(regNumber)}&key=suryansh`;
+      
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json,text/html,*/*",
+          "Accept-Language": "en-US,en;q=0.9"
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const text = await res.text();
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            data = JSON.parse(jsonMatch[0]);
+          } catch {
+            const arrayMatch = text.match(/\[[\s\S]*\]/);
+            if (arrayMatch) {
+              try {
+                data = JSON.parse(arrayMatch[0]);
+              } catch {
+                data = { raw_response: text.slice(0, 300) };
+              }
+            } else {
+              data = { raw_response: text.slice(0, 300) };
+            }
+          }
+        } else {
+          data = { raw_response: text.slice(0, 300) };
+        }
+      }
+
+      const cleanedData = cleanData(data);
+      cache.set(cacheKey, { data: cleanedData, time: Date.now() });
+      return cleanedData;
+
+    } catch (e) {
+      return { error: `Vehicle to Number API failed: ${e.message}` };
+    }
   }
 
   // Try both APIs and combine ALL results
@@ -350,7 +538,7 @@ export default async function handler(req, res) {
   const type = q.type?.toLowerCase();
   const term =
     q.term || q.number || q.mobile || q.vehicle_no ||
-    q.pan || q.imei || q.ifsc;
+    q.pan || q.imei || q.ifsc || q.aadhar || q.vpa;
 
   if (!type || !term) {
     return res.status(400).json({
@@ -396,9 +584,14 @@ export default async function handler(req, res) {
 export async function test(req, res) {
   res.json({
     status: "API WORKING",
-    version: "2.1",
+    version: "2.2",
     demo_key: "FUCKDEMOO",
     admin_key: "MRWEIRDO",
-    types: Object.keys(apiUrls)
+    types: Object.keys(apiUrls),
+    new_features: [
+      "Aadhaar Family API added",
+      "UPI Info API added",
+      "Vehicle to Number API updated"
+    ]
   });
 }
