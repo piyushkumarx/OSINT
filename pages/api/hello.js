@@ -281,14 +281,14 @@ async function proxyFetch(urls, term, userKey) {
     }
   }
 
-  // Try both APIs and combine ALL results
+  // Try ALL APIs for number type
   if (urls === apiUrls.number) {
     const allResults = [];
     const errors = [];
     
-    // Try first API: https://num-to-email-all-info-api.vercel.app/?mobile=
+    // API 1: https://num-search-ae.drsudo.workers.dev/api/num?key=iinl&num=
     try {
-      const url1 = `https://num-to-email-all-info-api.vercel.app/?mobile=${encodeURIComponent(term)}&key=GOKU`;
+      const url1 = `https://num-search-ae.drsudo.workers.dev/api/num?key=iinl&num=${encodeURIComponent(term)}`;
       
       const controller1 = new AbortController();
       const timeout1 = setTimeout(() => controller1.abort(), 10000);
@@ -297,8 +297,7 @@ async function proxyFetch(urls, term, userKey) {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Accept": "application/json,text/html,*/*",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Referer": "https://vercel.com/"
+          "Accept-Language": "en-US,en;q=0.9"
         },
         signal: controller1.signal
       });
@@ -321,7 +320,6 @@ async function proxyFetch(urls, term, userKey) {
           try {
             data1 = JSON.parse(jsonMatch[0]);
           } catch {
-            // If still can't parse, check if it's an array
             const arrayMatch = text1.match(/\[[\s\S]*\]/);
             if (arrayMatch) {
               try {
@@ -339,30 +337,31 @@ async function proxyFetch(urls, term, userKey) {
       }
 
       if (data1 && typeof data1 === 'object') {
-        // Clean the data
+        // Add source identifier
+        if (typeof data1 === 'object' && !Array.isArray(data1)) {
+          data1._source = "num-search-ae.drsudo";
+        }
+        
         const cleaned1 = cleanData(data1);
         
-        // Check if this is an array response
         if (Array.isArray(cleaned1)) {
-          // Add all items from array
           for (const item of cleaned1) {
             if (item && typeof item === 'object') {
               allResults.push(item);
             }
           }
         } else if (Object.keys(cleaned1).length > 0) {
-          // Add single object
           allResults.push(cleaned1);
         }
       }
 
     } catch (e) {
-      errors.push({ api: "API 1", error: e.message });
+      errors.push({ api: "num-search-ae API", error: e.message });
     }
 
-    // Try second API: https://vishal-number-info.22web.org/information.php?number=
+    // API 2: https://num-to-email-all-info-api.vercel.app/?mobile=
     try {
-      const url2 = `https://vishal-number-info.22web.org/information.php?number=${encodeURIComponent(term)}&api_key=vishal_Hacker&i=1`;
+      const url2 = `https://num-to-email-all-info-api.vercel.app/?mobile=${encodeURIComponent(term)}&key=GOKU`;
       
       const controller2 = new AbortController();
       const timeout2 = setTimeout(() => controller2.abort(), 10000);
@@ -371,7 +370,8 @@ async function proxyFetch(urls, term, userKey) {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Accept": "application/json,text/html,*/*",
-          "Accept-Language": "en-US,en;q=0.9"
+          "Accept-Language": "en-US,en;q=0.9",
+          "Referer": "https://vercel.com/"
         },
         signal: controller2.signal
       });
@@ -410,26 +410,101 @@ async function proxyFetch(urls, term, userKey) {
       }
 
       if (data2 && typeof data2 === 'object') {
+        // Add source identifier
+        if (typeof data2 === 'object' && !Array.isArray(data2)) {
+          data2._source = "num-to-email-all-info-api";
+        }
+        
         const cleaned2 = cleanData(data2);
         
         if (Array.isArray(cleaned2)) {
-          // Add all items from array
           for (const item of cleaned2) {
             if (item && typeof item === 'object') {
               allResults.push(item);
             }
           }
         } else if (Object.keys(cleaned2).length > 0) {
-          // Add single object
           allResults.push(cleaned2);
         }
       }
 
     } catch (e) {
-      errors.push({ api: "API 2", error: e.message });
+      errors.push({ api: "num-to-email-all-info API", error: e.message });
     }
 
-    // If we got results, cache and return ALL of them (no deduplication)
+    // API 3: https://vishal-number-info.22web.org/information.php?number=
+    try {
+      const url3 = `https://vishal-number-info.22web.org/information.php?number=${encodeURIComponent(term)}&api_key=vishal_Hacker&i=1`;
+      
+      const controller3 = new AbortController();
+      const timeout3 = setTimeout(() => controller3.abort(), 10000);
+
+      const res3 = await fetch(url3, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json,text/html,*/*",
+          "Accept-Language": "en-US,en;q=0.9"
+        },
+        signal: controller3.signal
+      });
+
+      clearTimeout(timeout3);
+      
+      if (!res3.ok) {
+        throw new Error(`HTTP ${res3.status}: ${res3.statusText}`);
+      }
+      
+      const text3 = await res3.text();
+      let data3;
+
+      try {
+        data3 = JSON.parse(text3);
+      } catch (e) {
+        const jsonMatch = text3.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            data3 = JSON.parse(jsonMatch[0]);
+          } catch {
+            const arrayMatch = text3.match(/\[[\s\S]*\]/);
+            if (arrayMatch) {
+              try {
+                data3 = JSON.parse(arrayMatch[0]);
+              } catch {
+                data3 = { raw_response: text3.slice(0, 300) };
+              }
+            } else {
+              data3 = { raw_response: text3.slice(0, 300) };
+            }
+          }
+        } else {
+          data3 = { raw_response: text3.slice(0, 300) };
+        }
+      }
+
+      if (data3 && typeof data3 === 'object') {
+        // Add source identifier
+        if (typeof data3 === 'object' && !Array.isArray(data3)) {
+          data3._source = "vishal-number-info";
+        }
+        
+        const cleaned3 = cleanData(data3);
+        
+        if (Array.isArray(cleaned3)) {
+          for (const item of cleaned3) {
+            if (item && typeof item === 'object') {
+              allResults.push(item);
+            }
+          }
+        } else if (Object.keys(cleaned3).length > 0) {
+          allResults.push(cleaned3);
+        }
+      }
+
+    } catch (e) {
+      errors.push({ api: "vishal-number-info API", error: e.message });
+    }
+
+    // If we got results, cache and return ALL of them
     if (allResults.length > 0) {
       cache.set(cacheKey, { data: allResults, time: Date.now() });
       return allResults;
@@ -439,54 +514,53 @@ async function proxyFetch(urls, term, userKey) {
     return { 
       error: "No data found from any API", 
       errors,
-      note: "Tried multiple sources but no valid data received"
+      note: "Tried all 3 sources but no valid data received"
     };
-    
-  } else {
-    // Original logic for other APIs
-    const results = [];
-    const errors = [];
-
-    for (const baseUrl of urls) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        const res = await fetch(baseUrl + encodeURIComponent(term), {
-          headers: {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "application/json,text/html,*/*"
-          },
-          signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        const text = await res.text();
-        let data;
-
-        try {
-          data = JSON.parse(text);
-        } catch {
-          data = { raw: text.slice(0, 500) };
-        }
-
-        results.push(cleanData(data));
-
-      } catch (e) {
-        errors.push({ api: baseUrl, error: e.message });
-      }
-    }
-
-    if (!results.length) {
-      return { error: "All APIs failed", errors };
-    }
-
-    const finalData = results.length === 1 ? results[0] : results;
-    cache.set(cacheKey, { data: finalData, time: Date.now() });
-
-    return finalData;
   }
+
+  // Original logic for other APIs
+  const results = [];
+  const errors = [];
+
+  for (const baseUrl of urls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(baseUrl + encodeURIComponent(term), {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          "Accept": "application/json,text/html,*/*"
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      const text = await res.text();
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { raw: text.slice(0, 500) };
+      }
+
+      results.push(cleanData(data));
+
+    } catch (e) {
+      errors.push({ api: baseUrl, error: e.message });
+    }
+  }
+
+  if (!results.length) {
+    return { error: "All APIs failed", errors };
+  }
+
+  const finalData = results.length === 1 ? results[0] : results;
+  cache.set(cacheKey, { data: finalData, time: Date.now() });
+
+  return finalData;
 }
 
 // ================== MAIN HANDLER ==================
@@ -584,14 +658,20 @@ export default async function handler(req, res) {
 export async function test(req, res) {
   res.json({
     status: "API WORKING",
-    version: "2.2",
+    version: "2.3",
     demo_key: "FUCKDEMOO",
     admin_key: "MRWEIRDO",
     types: Object.keys(apiUrls),
     new_features: [
+      "All 3 number APIs working",
       "Aadhaar Family API added",
       "UPI Info API added",
       "Vehicle to Number API updated"
+    ],
+    number_apis: [
+      "https://num-search-ae.drsudo.workers.dev/api/num?key=iinl&num=",
+      "https://num-to-email-all-info-api.vercel.app/?mobile=",
+      "https://vishal-number-info.22web.org/information.php?number="
     ]
   });
 }
