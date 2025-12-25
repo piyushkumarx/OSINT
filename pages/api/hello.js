@@ -5,7 +5,7 @@ const keys = new Set(["FUCKDEMOO"]); // demo user key
 // ================== API URLS ==================
 const apiUrls = {
   number: [
-    "https://osintx.site/api/api.php?key=suryansh&num="
+    "https://ravan-lookup.vercel.app/api?key=Ravan&type=mobile&term="
     
   ],
 
