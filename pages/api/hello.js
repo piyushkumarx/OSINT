@@ -5,7 +5,7 @@ const keys = new Set(["FUCKDEMOO"]); // demo user key
 // ================== API URLS ==================
 const apiUrls = {
   number: [
-    "https://ravan-lookup.vercel.app/api?key=Ravan&type=mobile&term="
+    "https://splexxo-api.vercel.app/api?key=SPLEXXO_PHONE_V3&number="
     
   ],
 
