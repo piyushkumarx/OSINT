@@ -5,8 +5,8 @@ const keys = new Set(["FUCKDEMOO"]); // demo user key
 // ================== API URLS ==================
 const apiUrls = {
   number: [
-    "https://num-search-ae.drsudo.workers.dev/api/num?key=iinl&num=",
-    "https://num-to-email-all-info-api.vercel.app/?mobile="
+    "https://num-search-ae.drsudo.workers.dev/api/num?key=iinl&num="
+    
   ],
 
   vehicle: [
