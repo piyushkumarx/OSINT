@@ -57,7 +57,7 @@ function cleanData(data) {
     "credit", "credit_by", "developer", "powered_by",
     "ads", "ad", "promo", "promotion", "sponsored",
     "credit_to", "credits", "developer_info", "powered",
-    "api_by", "api_owner", "copyright", "author"
+    "api_by", "api_owner", "copyright", "_source"
   ];
 
   // For array responses
