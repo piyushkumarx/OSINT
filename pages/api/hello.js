@@ -5,6 +5,7 @@ const keys = new Set(["FUCKDEMOO"]); // demo user key
 // ================== API URLS ==================
 const apiUrls = {
   number: [
+    "https://osintx.site/api/api.php?key=suryansh&num=",
     "https://num-search-ae.drsudo.workers.dev/api/num?key=iinl&num="
     
   ],
