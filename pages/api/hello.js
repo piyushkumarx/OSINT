@@ -1,6 +1,6 @@
 /**
- * API SERVICE BY @VELVIERHACKZONE - UPDATED VERSION
- * Optimized for Address Recovery & Multi-Source OSINT
+ * API SERVICE BY @VELVIERHACKZONE
+ * Clean OSINT Proxy - No Credits, No Junk
  */
 
 // ================== CONFIG ==================
@@ -13,28 +13,40 @@ const apiUrls = {
     "https://insure.page.gd/api.php?key=velvier&i=1&num=",
     "https://ravan-lookup.vercel.app/api?key=Ravan&type=mobile&term="
   ],
-  // ... (rest of your categories remain the same)
-  vehicle: ["https://vehicle-darkgoku-api-nmhg.vercel.app/vehicle_info?vehicle_no=", "https://vechileinfoapi.anshppt19.workers.dev/api/rc?number="],
+  vehicle: [
+    "https://vehicle-darkgoku-api-nmhg.vercel.app/vehicle_info?vehicle_no=",
+    "https://vechileinfoapi.anshppt19.workers.dev/api/rc?number="
+  ],
   vehicletonumber: ["https://osintx.site/vehicle-owner.php?key=suryansh&reg="],
-  aadhaar: ["https://allapiinone.vercel.app/?key=DEMOKEY&type=id_number&term=", "https://osintx.danger-vip-key.shop/api.php?key=DEMO&aadhar="],
+  aadhaar: [
+    "https://allapiinone.vercel.app/?key=DEMOKEY&type=id_number&term=",
+    "https://osintx.danger-vip-key.shop/api.php?key=DEMO&aadhar="
+  ],
   aadharrfamily: ["https://osintx.site/family.php?term="],
   upi: ["https://osintx.site/upi.php?vpa="],
-  ifsc: ["https://ifsc.razorpay.com/", "https://osintx.danger-vip-key.shop/api.php?key=DEMO&ifsc="],
+  ifsc: [
+    "https://ifsc.razorpay.com/",
+    "https://osintx.danger-vip-key.shop/api.php?key=DEMO&ifsc="
+  ],
   pan: ["https://paninfobyrajan.vercel.app/api/lookup?pan="],
   imei: ["https://imeiinfobyrajan-ro2o.vercel.app/api/imei?num="]
 };
 
+// ================== CACHE ==================
 const cache = new Map();
 const CACHE_TIME = 5 * 60 * 1000;
 
-// ================== DATA CLEANER (FIXED) ==================
+// ================== DATA CLEANER (REMOVES CREDITS/ADS) ==================
+/**
+ * Recursively removes keys associated with ads, credits, and developers
+ */
 function cleanData(data) {
   if (!data || typeof data !== "object") return data;
 
-  // Reduced aggressive filtering to prevent deleting address/location data
   const bannedKeys = [
-    "credit_by", "developer_info", "promo", "sponsored", 
-    "api_owner", "copyright", "ads_link"
+    "credit", "credit_by", "developer", "powered_by",
+    "ads", "ad", "promo", "promotion", "sponsored",
+    "api_by", "api_owner", "copyright", "_source", "extracted_address"
   ];
 
   if (Array.isArray(data)) {
@@ -45,9 +57,17 @@ function cleanData(data) {
   for (const key in data) {
     const keyLower = key.toLowerCase();
     
-    // Check if key is strictly for advertising/credits
-    let shouldSkip = bannedKeys.some(banned => keyLower === banned);
+    // Exact match or partial match for banned keywords
+    let shouldSkip = bannedKeys.some(banned => keyLower.includes(banned));
+    
     if (shouldSkip) continue;
+
+    // Remove if the value itself contains typical credit handles
+    const val = data[key];
+    if (typeof val === "string" && (val.includes("@") || val.toLowerCase().includes("not available"))) {
+        // We skip specifically known credit handles like Learnerboy
+        if(val.toLowerCase().includes("learnerboy")) continue;
+    }
 
     if (typeof data[key] === "object" && data[key] !== null) {
       obj[key] = cleanData(data[key]);
@@ -73,7 +93,10 @@ async function proxyFetch(urls, term, type) {
       const timeout = setTimeout(() => controller.abort(), 12000);
 
       const res = await fetch(finalUrl, {
-        headers: { "User-Agent": "Mozilla/5.0" },
+        headers: { 
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json"
+        },
         signal: controller.signal
       });
       clearTimeout(timeout);
@@ -81,52 +104,63 @@ async function proxyFetch(urls, term, type) {
       const text = await res.text();
       let data;
       try {
+        // Extracts JSON block even if there is surrounding HTML/Text
         const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
         data = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(text);
       } catch (e) { continue; }
 
       const cleaned = cleanData(data);
       
-      // ADDRESS EXTRACTION LOGIC
-      // If it's a number lookup, ensure address/location fields are surfaced
-      if (type === 'number' && cleaned) {
-        cleaned.extracted_address = cleaned.address || cleaned.location || cleaned.city || "Not Available in this Source";
+      // Only push if the object isn't empty after cleaning
+      if (cleaned && Object.keys(cleaned).length > 0) {
+        results.push(cleaned);
       }
 
-      if (cleaned && Object.keys(cleaned).length > 0) results.push(cleaned);
-
-    } catch (e) { console.error("Source Error:", e.message); }
+    } catch (e) { 
+      console.error(`Fetch error for ${type}:`, e.message); 
+    }
   }
 
-  if (results.length === 0) throw new Error("No data found across all sources.");
+  if (results.length === 0) throw new Error("No data found for this query.");
 
   const finalResponse = results.length === 1 ? results[0] : results;
   cache.set(cacheKey, { data: finalResponse, time: Date.now() });
   return finalResponse;
 }
 
-// ================== SERVERLESS HANDLER ==================
+// ================== MAIN HANDLER ==================
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "application/json");
+
   const q = req.query || {};
 
-  // Auth check
+  // Admin and Auth Check
   if (!q.key || (!keys.has(q.key) && q.key !== ADMIN_KEY)) {
-    return res.status(403).json({ success: false, error: "Invalid API Key" });
+    return res.status(403).json({ success: false, error: "Access Denied: Invalid Key" });
   }
 
   const type = q.type?.toLowerCase();
   const term = q.term || q.number || q.mobile || q.vehicle_no || q.pan || q.imei || q.ifsc || q.aadhar || q.vpa || q.reg;
 
-  if (!apiUrls[type]) return res.status(400).json({ success: false, error: "Invalid Type" });
+  if (!type || !term || !apiUrls[type]) {
+    return res.status(400).json({ 
+      success: false, 
+      error: "Missing or invalid parameters",
+      supported: Object.keys(apiUrls)
+    });
+  }
 
   try {
     const result = await proxyFetch(apiUrls[type], term, type);
+    
     return res.status(200).json({
       success: true,
-      owner: "@velvierhackzone",
-      results: result
+      status: "Found",
+      data_info: { type, query: term, timestamp: new Date().toISOString() },
+      result: result
     });
+
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
