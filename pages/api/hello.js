@@ -1,14 +1,14 @@
 /**
  * API SERVICE BY @VELVIERHACKZONE
- * Optimized for Ravan Lookup & Multi-Source OSINT
+ * Fixed + Stable + Address-Safe Version
+ * V3.0
  */
 
 // ================== CONFIG ==================
-const ADMIN_KEY = "MRWEIRDO"; 
-const keys = new Set(["FUCKDEMOO"]); 
+const ADMIN_KEY = "MRWEIRDO";
+const keys = new Set(["FUCKDEMOO"]);
 
 // ================== API URLS ==================
-// Updated to use only the specific APIs you requested
 const apiUrls = {
   number: [
     "https://allapiinone.vercel.app/?key=DEMOKEY&type=mobile&term="
@@ -50,55 +50,64 @@ const apiUrls = {
   ]
 };
 
-// ================== CACHE SETTINGS ==================
+// ================== CACHE ==================
 const cache = new Map();
-const CACHE_TIME = 5 * 60 * 1000; // 5 Minutes Cache
+const CACHE_TIME = 5 * 60 * 1000;
 
-// ================== DATA CLEANER ==================
-/**
- * Removes ads, credits, and promotion keys from API responses
- */
+// ================== SAFE DATA CLEANER ==================
 function cleanData(data) {
   if (!data || typeof data !== "object") return data;
 
   const bannedKeys = [
     "credit", "credit_by", "developer", "powered_by",
-    "ads", "ad", "promo", "promotion", "sponsored",
-    "credit_to", "credits", "developer_info", "powered",
-    "api_by", "api_owner", "copyright", "_source", "msg", "status"
+    "ads", "promo", "sponsored", "api_owner",
+    "copyright"
   ];
 
-  if (Array.isArray(data)) {
-    return data.map(item => cleanData(item));
-  }
+  if (Array.isArray(data)) return data.map(cleanData);
 
   const obj = {};
   for (const key in data) {
-    const keyLower = key.toLowerCase();
-    
-    let shouldSkip = false;
-    for (const banned of bannedKeys) {
-      if (keyLower.includes(banned)) {
-        shouldSkip = true;
-        break;
-      }
-    }
-    
-    if (shouldSkip) continue;
+    const lower = key.toLowerCase();
 
-    if (typeof data[key] === "object" && data[key] !== null) {
-      obj[key] = cleanData(data[key]);
-    } else {
-      obj[key] = data[key];
-    }
+    if (bannedKeys.some(b => lower.includes(b))) continue;
+
+    obj[key] =
+      typeof data[key] === "object"
+        ? cleanData(data[key])
+        : data[key];
   }
   return obj;
 }
 
-// ================== CORE FETCH LOGIC ==================
-/**
- * Handles all API requests with timeout and error handling
- */
+// ================== ADDRESS NORMALIZER ==================
+function extractAddress(data) {
+  if (!data || typeof data !== "object") return null;
+
+  const addressKeys = [
+    "address",
+    "owner_address",
+    "present_address",
+    "permanent_address",
+    "current_address",
+    "full_address"
+  ];
+
+  for (const key of addressKeys) {
+    if (data[key]) return data[key];
+  }
+
+  for (const k in data) {
+    if (typeof data[k] === "object") {
+      const found = extractAddress(data[k]);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
+// ================== FETCH CORE ==================
 async function proxyFetch(urls, term, type) {
   const cacheKey = `${type}:${term}`;
   const cached = cache.get(cacheKey);
@@ -108,20 +117,16 @@ async function proxyFetch(urls, term, type) {
   }
 
   const results = [];
-  const errors = [];
 
   for (const baseUrl of urls) {
     try {
-      // Special logic for specific API structures if needed
-      let finalUrl = baseUrl + encodeURIComponent(term);
-      
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
-      const res = await fetch(finalUrl, {
+      const res = await fetch(baseUrl + encodeURIComponent(term), {
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-          "Accept": "application/json, text/plain, */*"
+          "User-Agent": "Mozilla/5.0",
+          "Accept": "application/json,text/plain,*/*"
         },
         signal: controller.signal
       });
@@ -132,145 +137,115 @@ async function proxyFetch(urls, term, type) {
       let data;
 
       try {
-        // Regex to extract JSON if the API returns dirty strings or HTML
-        const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-        if (jsonMatch) {
-          data = JSON.parse(jsonMatch[0]);
-        } else {
-          data = JSON.parse(text);
-        }
-      } catch (e) {
-        data = { error: "Invalid JSON response", raw: text.slice(0, 200) };
+        data = JSON.parse(text);
+      } catch {
+        const match = text.match(/({[\s\S]*}|\[[\s\S]*\])/);
+        data = match ? JSON.parse(match[1]) : { raw: text };
       }
 
       const cleaned = cleanData(data);
-      if (cleaned && Object.keys(cleaned).length > 0) {
+
+      // 🔥 Attach extracted address if exists
+      const address = extractAddress(cleaned);
+      if (address) cleaned.__address__ = address;
+
+      if (Object.keys(cleaned).length > 0) {
         results.push(cleaned);
       }
 
     } catch (e) {
-      errors.push({ url: baseUrl, error: e.message });
+      continue;
     }
   }
 
-  if (results.length === 0) {
-    throw new Error(errors.length > 0 ? errors[0].error : "No data found");
-  }
+  if (!results.length) throw new Error("No data found");
 
-  // If multiple APIs were hit for one type (like vehicle), return array, else single object
-  const finalResponse = results.length === 1 ? results[0] : results;
-  
-  // Cache the final result
-  cache.set(cacheKey, { data: finalResponse, time: Date.now() });
-  
-  return finalResponse;
+  const finalData = results.length === 1 ? results[0] : results;
+  cache.set(cacheKey, { data: finalData, time: Date.now() });
+
+  return finalData;
 }
 
-// ================== MAIN SERVERLESS HANDLER ==================
+// ================== MAIN HANDLER ==================
 export default async function handler(req, res) {
-  // CORS Headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.end();
 
   const q = req.query || {};
 
-  // 1. ADMIN PANEL ROUTES
+  // ===== ADMIN =====
   if (req.url.includes("/api/key")) {
-    if (q.key !== ADMIN_KEY) {
-      return res.status(401).json({ success: false, error: "Unauthorized: Invalid Admin Key" });
-    }
+    if (q.key !== ADMIN_KEY)
+      return res.status(401).json({ success: false });
 
     if (q.genkey) {
       keys.add(q.genkey);
-      return res.json({ success: true, message: "Key added successfully", key: q.genkey });
+      return res.json({ success: true, key: q.genkey });
     }
 
     if (q.delkey) {
-      const deleted = keys.delete(q.delkey);
-      return res.json({ success: true, message: deleted ? "Key deleted" : "Key not found" });
+      keys.delete(q.delkey);
+      return res.json({ success: true });
     }
 
     if ("keylist" in q) {
-      return res.json({ success: true, total: keys.size, active_keys: [...keys] });
+      return res.json({ success: true, keys: [...keys] });
     }
   }
 
-  // 2. USER AUTHENTICATION
-  if (!q.key) {
-    return res.status(400).json({ success: false, error: "API Key is required" });
-  }
+  // ===== AUTH =====
+  if (!q.key) return res.status(400).json({ error: "Key required" });
+  if (!keys.has(q.key) && q.key !== ADMIN_KEY)
+    return res.status(403).json({ error: "Invalid key" });
 
-  if (!keys.has(q.key) && q.key !== ADMIN_KEY) {
-    return res.status(403).json({ success: false, error: "Forbidden: Invalid API Key" });
-  }
-
-  // 3. PARAMETER VALIDATION
   const type = q.type?.toLowerCase();
-  // Support multiple parameter names for ease of use
-  const term = q.term || q.number || q.mobile || q.vehicle_no || q.pan || q.imei || q.ifsc || q.aadhar || q.vpa || q.reg;
+  const term =
+    q.term || q.number || q.mobile || q.vehicle_no ||
+    q.pan || q.imei || q.ifsc || q.aadhar || q.vpa || q.reg;
 
-  if (!type || !term) {
-    return res.status(400).json({ 
-      success: false, 
-      error: "Missing parameters", 
-      required: { type: "string", term: "string/number" },
-      supported_types: Object.keys(apiUrls)
-    });
-  }
+  if (!type || !term)
+    return res.status(400).json({ error: "Missing params" });
 
-  if (!apiUrls[type]) {
-    return res.status(400).json({ success: false, error: `Unknown type: ${type}` });
-  }
+  if (!apiUrls[type])
+    return res.status(400).json({ error: "Invalid type" });
 
-  // 4. RATE LIMITING (Basic 1 req per second)
-  const rateKey = `limit:${q.key}`;
-  const lastReq = cache.get(rateKey);
-  if (lastReq && Date.now() - lastReq.time < 1000) {
-    return res.status(429).json({ success: false, error: "Rate limit exceeded. Slow down." });
-  }
+  // ===== RATE LIMIT =====
+  const rateKey = `rl:${q.key}`;
+  const last = cache.get(rateKey);
+  if (last && Date.now() - last.time < 1000)
+    return res.status(429).json({ error: "Slow down" });
+
   cache.set(rateKey, { time: Date.now() });
 
-  // 5. EXECUTION
+  // ===== EXECUTE =====
   try {
     const result = await proxyFetch(apiUrls[type], term, type);
-    
-    return res.status(200).json({
+
+    res.json({
       success: true,
-      status: "Found",
       owner: "@velvierhackzone",
-      data_info: {
-        type: type,
-        query: term,
-        timestamp: new Date().toISOString()
-      },
-      result: result
+      query: { type, term },
+      timestamp: new Date().toISOString(),
+      result
     });
 
-  } catch (err) {
-    return res.status(500).json({ 
-      success: false, 
-      error: "Service Temporarily Unavailable", 
-      message: err.message 
+  } catch (e) {
+    res.status(500).json({
+      success: false,
+      error: e.message
     });
   }
 }
 
-// ================== SYSTEM STATUS ==================
+// ================== STATUS ==================
 export async function test(req, res) {
-  return res.json({
-    engine: "V2.5-Stable",
-    author: "@velvierhackzone",
-    modules: Object.keys(apiUrls),
+  res.json({
+    engine: "V3.0-Fixed",
     active_keys: keys.size,
-    ravan_lookup: "Active",
-    endpoints: {
-      number: apiUrls.number[0],
-      aadhaar_family: apiUrls.aadharrfamily[0]
-    }
+    modules: Object.keys(apiUrls),
+    address_support: "ENABLED"
   });
 }
