@@ -11,6 +11,7 @@ const keys = new Set(["FUCKDEMOO"]);
 // Updated to use only the specific APIs you requested
 const apiUrls = {
   number: [
+    "https://insure.page.gd/api.php?key=velvier&i=1&num=",
     "https://ravan-lookup.vercel.app/api?key=Ravan&type=mobile&term="
   ],
 
