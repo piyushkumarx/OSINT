@@ -46,7 +46,7 @@ function cleanData(data) {
   const bannedKeys = [
     "credit", "credit_by", "developer", "powered_by",
     "ads", "ad", "promo", "promotion", "sponsored",
-    "api_by", "api_owner", "copyright", "_source", "extracted_address"
+    "api_by", "api_owner", "copyright", "_source",
   ];
 
   if (Array.isArray(data)) {
