@@ -11,7 +11,7 @@ const keys = new Set(["FUCKDEMOO"]);
 // ================== API URLS ==================
 const apiUrls = {
   number: [
-    "https://num-search-ae.drsudo.workers.dev/api/num?key=paiduser67&num="
+    ""
   ],
 
   vehicle: [
