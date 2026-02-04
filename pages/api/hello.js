@@ -20,7 +20,7 @@ const apiUrls = {
   ],
 
   vehicletonumber: [
-    "https://osintx.site/vehicle-owner.php?key=suryansh&reg="
+    "https://suryansh-vehicle-owner-num.vercel.app/?reg="
   ],
 
   aadhaar: [
